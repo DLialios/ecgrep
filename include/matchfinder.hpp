@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <future>
 #include <regex>
 #include <string>
 #include <vector>
@@ -37,13 +38,18 @@ class match_finder {
     std::streamoff
     file_size();
 
+    /* @return True iff each character in the string
+     *         is part of ascii (excluding NUL). */
+    bool
+    is_ascii(const std::string& s);
+
     /* @brief Find all regex matches in @a str.
      * @return Map of line numbers to vectors containing
      *         matches for that line. Match results are
      *         colored. */
     std::map<int, std::vector<std::string>> 
     get_matches(
-            std::string&& str,
+            std::string& str,
             const std::regex& patrn
     );
 
@@ -88,13 +94,21 @@ class match_finder {
             int offset
     );
 
-    /* Print match in formatted style to stdout. */
-    void 
+    /* @brief Formats filename, line number, and matched 
+     *        line so that final result can be printed. 
+     * @param filename Name of file from which match was found.
+     * @param lineno Line number where match was found.
+     * @param line Line in file that is to be displayed.
+     * @param is_err If this message should be sent
+     *               to stdout or stderr.
+     * @return Pair denoting the string to print and which
+     *         file descriptor to write it to. */
+    std::pair<bool,std::string>
     print_match(
-            const char*,
-            const int,
-            std::string&,
-            std::ostream&
+            const char* filename,
+            const int lineno,
+            std::string& line,
+            bool is_err
     );
 
     const char* filepath;
@@ -107,9 +121,13 @@ class match_finder {
             const char*
     );
 
-    /* Loads file into memory, performs searches,
-     * and prints results to stdout. */
-    void 
-    operator()();
+    /* Sets promise to a vector of pairs denoting a final result 
+     * to print and which file descriptor to write it to.
+     * This operation loads the file into memory. */
+    void
+    operator()(
+            std::promise<std::vector<std::pair<bool,std::string>>> p
+    );
 
 };
+
