@@ -32,10 +32,10 @@ match_finder::operator()(
     std::string data(it,eos);
 
     // bail if the file is likely binary
-    if (!is_ascii(data)) {
+    if (!is_binary(data)) {
         std::string msg(
                 BOLD_RED 
-                "<file contains non-ascii glyphs>" 
+                "<file is likely binary>" 
                 RESET
                 );
         res.push_back(print_match(filepath,-1,msg,true));
@@ -65,10 +65,15 @@ match_finder::file_size() {
 }
 
 bool
-match_finder::is_ascii(const std::string& s) {
-    for (const auto& e : s)
-        if (e < 1 || e > 127)
-            return false;
+match_finder::is_binary(const std::string& s) {
+    if (s.length() < 16385){ 
+        for (const auto& e : s)
+            if (e == 0)
+                return false;
+    } else
+        for (int i = 0; i < 16384; ++i)
+            if (s[i] == 0)
+                return false;
     return true; 
 }
 
@@ -267,10 +272,10 @@ match_finder::print_match(
 
     std::ostringstream os;
     os
-        <<GREEN<<file_name<<RESET
-        <<PURPLE<<":"<<RESET
-        <<BOLD_YELLOW<<lineno<<RESET
-        <<PURPLE<<":"<<RESET
+        <<PURPLE<<file_name<<RESET
+        <<CYAN<<":"<<RESET
+        <<GREEN<<lineno<<RESET
+        <<CYAN<<":"<<RESET
         <<line<<'\n';
 
     return {is_err,os.str()};

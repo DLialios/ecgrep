@@ -9,14 +9,15 @@
 
 #define GREEN       "\e[0;32m"
 #define PURPLE      "\e[0;35m"
+#define CYAN        "\e[0;36m"
 #define BOLD_RED    "\e[1;31m"
 #define BOLD_YELLOW "\e[1;33m"
 #define BOLD_BLUE   "\e[1;34m"
 #define RED_BGRND   "\e[41m"
 #define RESET       "\e[0m"
-#define HIGHLIGHT   RED_BGRND
+#define HIGHLIGHT   RED_BGRND BOLD_YELLOW
 
-#define MAX_FILE_SZ 100'000'000
+#define MAX_FILE_SZ 12'000'000
 
 /* @brief Find all @a v in @a c.
  * @param c Container to search.
@@ -38,10 +39,10 @@ class match_finder {
     std::streamoff
     file_size();
 
-    /* @return True iff each character in the string
-     *         is part of ascii (excluding NUL). */
+    /* @return False if the first 16KiB of the file
+     *         contain a null byte. */
     bool
-    is_ascii(const std::string& s);
+    is_binary(const std::string& s);
 
     /* @brief Find all regex matches in @a str.
      * @return Map of line numbers to vectors containing
