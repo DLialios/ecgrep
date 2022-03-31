@@ -1,5 +1,5 @@
 #include <iostream>
-#include <vector>
+#include <deque>
 #include <list>
 #include <future>
 #include <thread>
@@ -20,32 +20,42 @@ int main(int argc, const char** argv)
 
     using f_ret_type = std::vector<std::pair<bool,std::string>>;
     std::list<std::future<f_ret_type>> futures;
-    std::vector<const char*> files;
+    std::deque<const char*> files;
 
     for (int i = 2; i < argc; ++i)
         files.push_back(argv[i]);
 
-    for (const auto& e : files) {
-        std::promise<f_ret_type> p;
-        futures.push_back(p.get_future());
+    unsigned int threads = 1;
+    unsigned int finished = 0;
+    unsigned int todo = files.size();
+    while (finished != todo) {
+        if (threads < std::thread::hardware_concurrency()
+                && !files.empty()) {
+            std::promise<f_ret_type> p;
+            futures.push_back(p.get_future());
 
-        std::thread t(match_finder(e,patrn), std::move(p));
-        t.detach();
-    }
+            std::thread(
+                    match_finder(files.front(), patrn), std::move(p)
+                    ).detach();
 
-    std::future_status status;
-    while (!futures.empty()) {
+            ++threads;
+            files.pop_front();
+        }
+
         using iter_t = std::list<std::future<f_ret_type>>::iterator;
+
         iter_t it = futures.begin(), end = futures.end();
         while (it != end) {
-            status = (*it).wait_for(4ms);
-            if (status == std::future_status::ready) {
+            if ((*it).wait_for(4ms) == std::future_status::ready) {
                 for (const auto& e : (*it).get())
                     if (e.first)
                         std::cerr << e.second;
                     else
                         std::cout << e.second;
+
                 it = futures.erase(it);
+                ++finished;
+                --threads;
             } else
                 ++it;
         }

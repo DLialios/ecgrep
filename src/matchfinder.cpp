@@ -12,10 +12,23 @@ match_finder::operator()(
         std::promise<std::vector<std::pair<bool,std::string>>> p
         ) {
     std::vector<std::pair<bool,std::string>> res;
+    auto sz = file_size();
+
+    // check if we can read it
+    if (sz == 0) {
+        std::string msg(
+                BOLD_RED 
+                "<cannot read file>" 
+                RESET
+                );
+        res.push_back(print_match(filepath,-1,msg,true));
+        p.set_value_at_thread_exit(res);
+        return;
+    }
 
     // bail if the file is too big
     constexpr int max_sz_mb = MAX_FILE_SZ / 1000 / 1000;
-    if (file_size() > MAX_FILE_SZ) {
+    if (sz > MAX_FILE_SZ) {
         std::ostringstream os;
         os 
             << BOLD_RED "<file is over " 
@@ -23,7 +36,7 @@ match_finder::operator()(
             << "MB>" RESET;
         std::string msg(os.str());
         res.push_back(print_match(filepath,-1,msg,true));
-        p.set_value(res);
+        p.set_value_at_thread_exit(res);
         return;
     }
 
@@ -39,7 +52,7 @@ match_finder::operator()(
                 RESET
                 );
         res.push_back(print_match(filepath,-1,msg,true));
-        p.set_value(res);
+        p.set_value_at_thread_exit(res);
         return;
     }
 
@@ -53,7 +66,7 @@ match_finder::operator()(
         res.push_back(print_match(filepath,e.first,s,false));
     }
 
-    p.set_value(res);
+    p.set_value_at_thread_exit(res);
 }
 
 std::streamoff
