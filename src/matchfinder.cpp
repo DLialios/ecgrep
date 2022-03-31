@@ -14,7 +14,6 @@ match_finder::operator()(
     std::vector<std::pair<bool,std::string>> res;
     auto sz = file_size();
 
-    // check if we can read it
     if (sz == 0) {
         std::string msg(
                 BOLD_RED 
@@ -48,7 +47,7 @@ match_finder::operator()(
     if (!is_binary(data)) {
         std::string msg(
                 BOLD_RED 
-                "<file is likely binary>" 
+                "<file is not plaintext>" 
                 RESET
                 );
         res.push_back(print_match(filepath,-1,msg,true));
@@ -64,6 +63,15 @@ match_finder::operator()(
             s = merge_results(s, e2);
         }
         res.push_back(print_match(filepath,e.first,s,false));
+    }
+
+    if (res.empty()) {
+        std::string msg(
+                BOLD_RED 
+                "<no matches>" 
+                RESET
+                );
+        res.push_back(print_match(filepath,-1,msg,true));
     }
 
     p.set_value_at_thread_exit(res);
