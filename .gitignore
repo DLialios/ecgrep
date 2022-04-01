@@ -1,7 +1,1 @@
-#clangd
-.cache/
-compile_commands.json
-
-#build
-bin/
-obj/*.o
+build/
