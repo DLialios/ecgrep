@@ -1,3 +1,16 @@
-Made primarily for use with fd and xargs to recursively search within repos
+Traverses the current working directory. 
 
-`lookfor() { fd -tf | xargs -P 0 ecgrep "$1" }`
+For each regular file (no fifos, symlinks, etc.) under 100MB which does not contain a null byte:
+
+1. load data into memory
+2. perform regex search with pattern
+3. print name of file, line number of match, and contents of line
+4. free resources
+
+A single file may contain many matches.
+
+Workload is placed on as many threads as the platform has available.
+
+Has two switches, c (case-sensitive) and v (verbose output).
+
+`ecgrep -c 'Hello [wW]orld!\n'`
