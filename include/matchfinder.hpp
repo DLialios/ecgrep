@@ -1,11 +1,5 @@
-#include <iostream>
 #include <fstream>
-#include <future>
 #include <regex>
-#include <string>
-#include <vector>
-#include <map>
-#include <cmath>
 
 #define GREEN       "\e[0;32m"
 #define PURPLE      "\e[0;35m"
@@ -17,7 +11,7 @@
 #define RESET       "\e[0m"
 #define HIGHLIGHT   RED_BGRND BOLD_YELLOW
 
-#define MAX_FILE_SZ 12'000'000
+#define MAX_FILE_SZ 100'000'000
 
 /* @brief Find all @a v in @a c.
  * @param c Container to search.
@@ -50,8 +44,7 @@ class match_finder {
      *         colored. */
     std::map<int, std::vector<std::string>> 
     get_matches(
-            std::string& str,
-            const std::regex& patrn
+            std::string& str
     );
 
     /* @brief Highlight the regex match in a string. 
@@ -97,7 +90,6 @@ class match_finder {
 
     /* @brief Formats filename, line number, and matched 
      *        line so that final result can be printed. 
-     * @param filename Name of file from which match was found.
      * @param lineno Line number where match was found.
      * @param line Line in file that is to be displayed.
      * @param is_err If this message should be sent
@@ -106,29 +98,26 @@ class match_finder {
      *         file descriptor to write it to. */
     std::pair<bool,std::string>
     print_match(
-            const char* filename,
             const int lineno,
             std::string& line,
             bool is_err
     );
 
-    const char* filepath;
-    const char* input_ptrn;
+    std::string filepath;
+    const std::regex& patrn;
 
     public:
 
     match_finder(
-            const char*,
-            const char*
+            std::string,
+            const std::regex&
     );
 
-    /* Sets promise to a vector of pairs denoting a final result 
+    /* @return Vector of pairs denoting a final result 
      * to print and which file descriptor to write it to.
      * This operation loads the file into memory. */
-    void
-    operator()(
-            std::promise<std::vector<std::pair<bool,std::string>>> p
-    );
+    std::vector<std::pair<bool,std::string>>
+    operator()();
 
 };
 

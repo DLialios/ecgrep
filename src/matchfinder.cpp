@@ -1,16 +1,14 @@
 #include "matchfinder.hpp"
 
 match_finder::match_finder(
-        const char* filepath,
-        const char* input_ptrn
+        std::string filepath,
+        const std::regex& patrn
         )
-    :filepath(filepath), input_ptrn(input_ptrn) 
+    :filepath(filepath), patrn(patrn) 
 {}
 
-void
-match_finder::operator()(
-        std::promise<std::vector<std::pair<bool,std::string>>> p
-        ) {
+std::vector<std::pair<bool,std::string>>
+match_finder::operator()() {
     std::vector<std::pair<bool,std::string>> res;
     auto sz = file_size();
 
@@ -20,9 +18,8 @@ match_finder::operator()(
                 "<cannot read file>" 
                 RESET
                 );
-        res.push_back(print_match(filepath,-1,msg,true));
-        p.set_value_at_thread_exit(res);
-        return;
+        res.push_back(print_match(-1,msg,true));
+        return res;
     }
 
     // bail if the file is too big
@@ -34,9 +31,8 @@ match_finder::operator()(
             << max_sz_mb 
             << "MB>" RESET;
         std::string msg(os.str());
-        res.push_back(print_match(filepath,-1,msg,true));
-        p.set_value_at_thread_exit(res);
-        return;
+        res.push_back(print_match(-1,msg,true));
+        return res;
     }
 
     std::ifstream is(filepath,std::ios::binary);
@@ -50,19 +46,18 @@ match_finder::operator()(
                 "<file is not plaintext>" 
                 RESET
                 );
-        res.push_back(print_match(filepath,-1,msg,true));
-        p.set_value_at_thread_exit(res);
-        return;
+        res.push_back(print_match(-1,msg,true));
+        return res;
     }
 
-    auto m = get_matches(data,std::regex(input_ptrn));
+    auto m = get_matches(data);
 
     for (const auto& e : m) {
         std::string s (e.second[0]);
         for (const auto& e2 : e.second) {
             s = merge_results(s, e2);
         }
-        res.push_back(print_match(filepath,e.first,s,false));
+        res.push_back(print_match(e.first,s,false));
     }
 
     if (res.empty()) {
@@ -71,10 +66,10 @@ match_finder::operator()(
                 "<no matches>" 
                 RESET
                 );
-        res.push_back(print_match(filepath,-1,msg,true));
+        res.push_back(print_match(-1,msg,true));
     }
 
-    p.set_value_at_thread_exit(res);
+    return res;
 }
 
 std::streamoff
@@ -100,8 +95,7 @@ match_finder::is_binary(const std::string& s) {
 
 std::map<int, std::vector<std::string>> 
 match_finder::get_matches(
-        std::string& str, 
-        const std::regex& patrn
+        std::string& str
         ) {
     using namespace std;
     map<int,vector<string>> res;
@@ -125,13 +119,16 @@ match_finder::get_matches(
         curr_lineno += find_all(prefix + curr_m,'\n').size();
 
         decltype(newline_locs)::value_type start,end;
-        if (curr_lineno < 2) {
+        if (newline_locs.empty()) { // edge case: file has no \n
+            start = str.begin();
+            end = str.end();
+        } else if (curr_lineno < 2) { // start
             start = str.begin();
             end = newline_locs[0];
-        } else if (curr_lineno == total_lines) {
+        } else if (curr_lineno == total_lines) { // end
             start = newline_locs[curr_lineno - 2] + 1;
             end = str.end();
-        } else {
+        } else { // middle
             start = newline_locs[curr_lineno - 2] + 1;
             end = newline_locs[curr_lineno - 1];
         }
@@ -278,7 +275,6 @@ match_finder::get_term_ctrl_loc(
 
 std::pair<bool,std::string>
 match_finder::print_match(
-        const char* file_name,
         const int lineno,
         std::string& line,
         bool is_err
@@ -293,7 +289,7 @@ match_finder::print_match(
 
     std::ostringstream os;
     os
-        <<PURPLE<<file_name<<RESET
+        <<PURPLE<<filepath<<RESET
         <<CYAN<<":"<<RESET
         <<GREEN<<lineno<<RESET
         <<CYAN<<":"<<RESET

@@ -1,65 +1,93 @@
+#include <filesystem>
 #include <iostream>
-#include <deque>
-#include <list>
 #include <future>
-#include <thread>
-#include <chrono>
 #include "matchfinder.hpp"
 
-using namespace std::chrono_literals;
+typedef unsigned char uchar;
+using deque_str = std::deque<std::string>;
+
+std::mutex m;
+bool verbose = false;
+
+void worker(deque_str& files, const std::regex& patrn) {
+    unsigned int finished = 0;
+    unsigned int todo = files.size();
+
+    while (finished != todo) {
+        using ret_t = std::vector<std::pair<bool,std::string>>;
+
+        ret_t ret = match_finder(files.front(), patrn)();
+
+        {
+            std::lock_guard<std::mutex> lock(m);
+
+            for (const auto& e : ret)
+                if (e.first) {
+                    if (verbose)
+                        std::cerr << e.second;
+                } else
+                    std::cout << e.second;
+        }
+
+        files.pop_front();
+        ++finished;
+    }
+}
 
 int main(int argc, const char** argv) 
 {
-    const char* patrn = argv[1];
+    namespace rc = std::regex_constants;
+    auto flags = rc::ECMAScript | rc::optimize | rc::nosubs | rc::icase;
 
-    if (argc < 3 || !strcmp(patrn,"")) {
-        std::cerr 
-            << "main: cannot search without pattern\n";
-        return 1;
+    auto bail = [] {
+        puts("main: invalid args");
+        exit(1);
+    };
+
+    if (argc < 2) bail();
+
+    int i = 1;
+    for (; i < argc; ++i) { // process each arg
+        if (argv[i][0] != '-'
+                || (argv[i][0] == '-' && i == argc - 1))
+            break;
+
+        for (int j = 1; j < strlen(argv[i]); ++j)
+            switch (argv[i][j]) {
+                case 'v':
+                    verbose = true;
+                    break;
+                case 'c':
+                    flags &= ~rc::icase;
+                    break;
+                default:
+                    bail();
+            }
     }
 
-    using f_ret_type = std::vector<std::pair<bool,std::string>>;
-    std::list<std::future<f_ret_type>> futures;
-    std::deque<const char*> files;
+    if (!strcmp(argv[i],"")) bail();
 
-    for (int i = 2; i < argc; ++i)
-        files.push_back(argv[i]);
+    std::regex patrn(argv[i], flags);
 
-    unsigned int threads = 1;
-    unsigned int finished = 0;
-    unsigned int todo = files.size();
-    while (finished != todo) {
-        if (threads < std::thread::hardware_concurrency()
-                && !files.empty()) {
-            std::promise<f_ret_type> p;
-            futures.push_back(p.get_future());
+    uchar nthread = std::thread::hardware_concurrency();
+    deque_str jobs[nthread];
 
-            std::thread(
-                    match_finder(files.front(), patrn), std::move(p)
-                    ).detach();
-
-            ++threads;
-            files.pop_front();
+    namespace fs = std::filesystem;
+    fs::recursive_directory_iterator iter(fs::current_path());
+    int curr = 0;
+    for (const auto& e : iter) 
+        if (e.is_regular_file()) {
+            jobs[curr].emplace_back(e.path().c_str());
+            curr = curr == nthread - 1 ? 0 : ++curr;
         }
 
-        using iter_t = std::list<std::future<f_ret_type>>::iterator;
+    std::vector<std::thread> threads;
 
-        iter_t it = futures.begin(), end = futures.end();
-        while (it != end) {
-            if ((*it).wait_for(4ms) == std::future_status::ready) {
-                for (const auto& e : (*it).get())
-                    if (e.first)
-                        std::cerr << e.second;
-                    else
-                        std::cout << e.second;
+    for (int i = 0; i < nthread; ++i)
+        threads.emplace_back(worker, std::ref(jobs[i]), std::cref(patrn));
 
-                it = futures.erase(it);
-                ++finished;
-                --threads;
-            } else
-                ++it;
-        }
-    }
+    for (auto& e : threads)
+        e.join();
 
     return 0;
 }
