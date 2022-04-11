@@ -73,7 +73,8 @@ int main(int argc, const char** argv)
     deque_str jobs[nthread];
 
     namespace fs = std::filesystem;
-    fs::recursive_directory_iterator iter(fs::current_path());
+    fs::recursive_directory_iterator iter(fs::current_path(),
+            fs::directory_options::skip_permission_denied);
     int curr = 0;
     for (const auto& e : iter) 
         if (e.is_regular_file()) {
