@@ -1,3 +1,5 @@
+[![demo](https://asciinema.org/a/486661.svg)](https://asciinema.org/a/486661?autoplay=1)
+
 Traverses the current working directory. 
 
 For each regular file (no fifos, symlinks, etc.) under 100MB which does not contain a null byte:
