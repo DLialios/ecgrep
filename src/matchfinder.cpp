@@ -1,7 +1,7 @@
 #include "matchfinder.hpp"
 
 match_finder::match_finder(
-        std::string filepath,
+        const std::string& filepath,
         const std::string& pwdpath,
         const std::regex& patrn
         )
@@ -87,7 +87,9 @@ match_finder::file_size() {
 }
 
 bool
-match_finder::is_binary(const std::string& s) {
+match_finder::is_binary(
+        const std::string& s
+        ) {
     if (s.length() < 16385){ 
         for (const auto& e : s)
             if (e == 0)
@@ -101,7 +103,7 @@ match_finder::is_binary(const std::string& s) {
 
 std::map<int, std::vector<std::string>> 
 match_finder::get_matches(
-        std::string& str
+        const std::string& str
         ) {
     using namespace std;
     map<int,vector<string>> res;
@@ -283,7 +285,7 @@ std::pair<bool,std::string>
 match_finder::print_match(
         const int lineno,
         std::string& line,
-        bool is_err
+        const bool is_err
         ) { 
     using sz_t = std::string::size_type; 
     sz_t min_len = std::strlen(HIGHLIGHT) + std::strlen(RESET);

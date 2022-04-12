@@ -16,10 +16,10 @@
 /* @brief Find all @a v in @a c.
  * @param c Container to search.
  * @param v Value to search for.
- * @return Vector of iterators to matching elements. */
+ * @return Vector of const iterators to matching elements. */
 template<typename C, typename V>
 auto find_all(C&& c, const V& v) {
-    using iter_t = typename std::remove_reference<C>::type::iterator;
+    using iter_t = typename std::remove_reference<C>::type::const_iterator;
     std::vector<iter_t> res;
     for (auto it = c.begin(), end = c.end(); it != end; ++it) 
         if (*it == v)
@@ -44,7 +44,7 @@ class match_finder {
      *         colored. */
     std::map<int, std::vector<std::string>> 
     get_matches(
-            std::string& str
+            const std::string& str
     );
 
     /* @brief Highlight the regex match in a string. 
@@ -100,7 +100,7 @@ class match_finder {
     print_match(
             const int lineno,
             std::string& line,
-            bool is_err
+            const bool is_err
     );
 
     std::string filepath;
@@ -109,7 +109,7 @@ class match_finder {
     public:
 
     match_finder(
-            std::string filepath,
+            const std::string& filepath,
             const std::string& pwdpath,
             const std::regex& patrn
     );
