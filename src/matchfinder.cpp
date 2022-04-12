@@ -2,10 +2,16 @@
 
 match_finder::match_finder(
         std::string filepath,
+        const std::string& pwdpath,
         const std::regex& patrn
         )
-    :filepath(filepath), patrn(patrn) 
-{}
+    :patrn(patrn)
+{
+    auto it = filepath.begin();
+    it += pwdpath.size();
+
+    this->filepath = std::string(it + 1, filepath.end());
+}
 
 std::vector<std::pair<bool,std::string>>
 match_finder::operator()() {

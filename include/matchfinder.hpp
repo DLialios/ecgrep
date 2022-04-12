@@ -109,8 +109,9 @@ class match_finder {
     public:
 
     match_finder(
-            std::string,
-            const std::regex&
+            std::string filepath,
+            const std::string& pwdpath,
+            const std::regex& patrn
     );
 
     /* @return Vector of pairs denoting a final result 

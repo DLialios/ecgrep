@@ -5,9 +5,11 @@
 
 typedef unsigned char uchar;
 using deque_str = std::deque<std::string>;
+namespace fs = std::filesystem;
 
 std::mutex m;
 bool verbose = false;
+fs::path pwdpath = fs::current_path();
 
 void worker(deque_str& files, const std::regex& patrn) {
     unsigned int finished = 0;
@@ -16,7 +18,7 @@ void worker(deque_str& files, const std::regex& patrn) {
     while (finished != todo) {
         using ret_t = std::vector<std::pair<bool,std::string>>;
 
-        ret_t ret = match_finder(files.front(), patrn)();
+        ret_t ret = match_finder(files.front(), pwdpath, patrn)();
 
         {
             std::lock_guard<std::mutex> lock(m);
@@ -72,8 +74,7 @@ int main(int argc, const char** argv)
     uchar nthread = std::thread::hardware_concurrency();
     deque_str jobs[nthread];
 
-    namespace fs = std::filesystem;
-    fs::recursive_directory_iterator iter(fs::current_path(),
+    fs::recursive_directory_iterator iter(pwdpath,
             fs::directory_options::skip_permission_denied);
     int curr = 0;
     for (const auto& e : iter) 
