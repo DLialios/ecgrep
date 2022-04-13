@@ -111,7 +111,7 @@ match_finder::get_matches(
     auto str_end = str.cend();
 
     auto newline_locs = find_all(str,'\n');
-    int total_lines = newline_locs.size() + 1;
+    int total_lines = newline_locs.size();
     int curr_lineno = 1;
     int prev_lineno = 1;
 
@@ -124,7 +124,7 @@ match_finder::get_matches(
         string curr_m = match[0];
         string suffix = match.suffix().str();
 
-        curr_lineno += find_all(prefix + curr_m,'\n').size();
+        curr_lineno += find_all(prefix,'\n').size();
 
         decltype(newline_locs)::value_type start,end;
         if (newline_locs.empty()) { // edge case: file has no \n
@@ -132,7 +132,7 @@ match_finder::get_matches(
             end = str.end();
         } else if (curr_lineno < 2) { // start
             start = str.begin();
-            end = newline_locs[0];
+            end = newline_locs[0] + 1;
         } else if (curr_lineno == total_lines) { // end
             start = newline_locs[curr_lineno - 2] + 1;
             end = str.end();
@@ -146,15 +146,20 @@ match_finder::get_matches(
             res.insert({prev_lineno, curr_line_matches});
             curr_line_matches.clear();
         }
+
+        string to_add(start,end);
         curr_line_matches.emplace_back(
-                color_output_string(string(start,end),curr_m,suffix)
+                color_output_string(to_add,curr_m,suffix)
                 );
 
         str_begin = match.suffix().first;
         prev_lineno = curr_lineno;
+        curr_lineno += find_all(curr_m,'\n').size();
     }
 
-    if (hasrun)
+    if (hasrun && !res.empty())
+        res.insert({curr_lineno - 1, curr_line_matches});
+    else if (hasrun)
         res.insert({curr_lineno, curr_line_matches});
 
     return res;
@@ -166,31 +171,36 @@ match_finder::color_output_string(
         const std::string& match,
         const std::string& suffix
         ) {
-    std::string res(s);
-    std::string color(HIGHLIGHT);
-    std::string mtch (match);
+    namespace rc = std::regex_constants;
+    static const auto flags = rc::ECMAScript | rc::optimize | rc::nosubs;
+    static const std::regex bpat(R"([[:space:]])", flags);
 
-    // we have to remove newlines from match
-    std::string::size_type inewline = mtch.find_last_of('\n');
-    if (inewline != std::string::npos) {
-        if (inewline == mtch.length() - 1)
-            mtch.clear();
-        else 
-            mtch = mtch.substr(inewline + 1);
+    std::string highlight;
+    std::string res, mtch, concat;
+    if (std::regex_search(match, bpat)) {
+        int loc = find_match_index(s,match+suffix);
+        std::ostringstream os(s);
+        os.seekp(loc);
+        std::ostream_iterator<char> osi(os);
+        std::regex_replace(osi, s.begin() + loc, s.end(), bpat, "$",
+                std::regex_constants::format_first_only);
+
+        res = os.str();
+        mtch = std::regex_replace(match, patrn, "$");
+        concat = mtch + suffix;
+        highlight = ALTHIGHLIGHT;
+    } else {
+        res = s;
+        mtch = match;
+        concat = mtch + suffix;
+        highlight = HIGHLIGHT;
     }
 
-    // insert terminal codes
-    if (s == mtch) {
-        res.insert(0, color);
-        res.insert(res.length(), RESET);
-    }
-    else {    
-        int start_index = find_match_index(s,mtch+suffix);
-        int end_index = start_index + mtch.length() - 1;
+    int start_index = find_match_index(res,concat);
+    int end_index = start_index + mtch.length() - 1;
 
-        res.insert(start_index, color);
-        res.insert(color.length() + end_index + 1, RESET);
-    }
+    res.insert(start_index, highlight);
+    res.insert(highlight.size() + end_index + 1, RESET);
 
     return res;
 }
@@ -287,14 +297,6 @@ match_finder::print_match(
         std::string& line,
         const bool is_err
         ) { 
-    using sz_t = std::string::size_type; 
-    sz_t min_len = std::strlen(HIGHLIGHT) + std::strlen(RESET);
-
-    if (line.length() >= min_len
-            && line.substr(0, min_len) == HIGHLIGHT RESET) {
-        line.assign(BOLD_BLUE "<blank_match>" RESET);
-    }
-
     std::ostringstream os;
     os
         <<PURPLE<<filepath<<RESET
