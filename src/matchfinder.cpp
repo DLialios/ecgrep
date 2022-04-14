@@ -107,60 +107,47 @@ match_finder::get_matches(
         ) {
     using namespace std;
     map<int,vector<string>> res;
-    auto str_begin = str.cbegin();
-    auto str_end = str.cend();
 
     auto newline_locs = find_all(str,'\n');
-    int total_lines = newline_locs.size();
-    int curr_lineno = 1;
-    int prev_lineno = 1;
+    int max_index = newline_locs.size() - 1;
+    int curr_index = 0;
 
-    smatch match;
-    vector<string> curr_line_matches;
-    bool hasrun = false;
-    while (regex_search(str_begin,str_end,match,patrn)) {
-        hasrun = true;
+    auto it = sregex_iterator(str.begin(),str.end(),patrn);
+    auto end = sregex_iterator();
+    for (smatch match; it != end; ++it) {
+        match = *it;
+
         string prefix = match.prefix().str();
         string curr_m = match[0];
         string suffix = match.suffix().str();
 
-        curr_lineno += find_all(prefix,'\n').size();
+        curr_index += find_all(prefix,'\n').size(); 
 
         decltype(newline_locs)::value_type start,end;
         if (newline_locs.empty()) { // edge case: file has no \n
             start = str.begin();
             end = str.end();
-        } else if (curr_lineno < 2) { // start
+        } else if (curr_index == 0) { // start
             start = str.begin();
             end = newline_locs[0] + 1;
-        } else if (curr_lineno == total_lines) { // end
-            start = newline_locs[curr_lineno - 2] + 1;
+        } else if (curr_index == max_index) { // end
+            start = newline_locs[curr_index - 1] + 1;
             end = str.end();
         } else { // middle
-            start = newline_locs[curr_lineno - 2] + 1;
-            end = newline_locs[curr_lineno - 1];
+            start = newline_locs[curr_index - 1] + 1;
+            end = newline_locs[curr_index] + 1;
         }
 
-        if (curr_lineno != prev_lineno
-                && !curr_line_matches.empty()) {
-            res.insert({prev_lineno, curr_line_matches});
-            curr_line_matches.clear();
-        }
+        string line(start, end);
+        string line_color = color_output_string(line,curr_m,suffix);
 
-        string to_add(start,end);
-        curr_line_matches.emplace_back(
-                color_output_string(to_add,curr_m,suffix)
-                );
+        if (line_color.back() == '\n')
+            line_color.pop_back();
 
-        str_begin = match.suffix().first;
-        prev_lineno = curr_lineno;
-        curr_lineno += find_all(curr_m,'\n').size();
+        res[curr_index + 1].push_back(line_color);
+
+        curr_index += find_all(curr_m,'\n').size(); 
     }
-
-    if (hasrun && !res.empty())
-        res.insert({curr_lineno - 1, curr_line_matches});
-    else if (hasrun)
-        res.insert({curr_lineno, curr_line_matches});
 
     return res;
 }
@@ -182,11 +169,12 @@ match_finder::color_output_string(
         std::ostringstream os(s);
         os.seekp(loc);
         std::ostream_iterator<char> osi(os);
-        std::regex_replace(osi, s.begin() + loc, s.end(), bpat, "$",
-                std::regex_constants::format_first_only);
+        auto siter = s.begin() + loc;
+        auto eiter = siter + match.length();
+        std::regex_replace(osi, siter, eiter, bpat, XSTR(BLANK_CHAR));
 
         res = os.str();
-        mtch = std::regex_replace(match, patrn, "$");
+        mtch = std::regex_replace(match, bpat, XSTR(BLANK_CHAR));
         concat = mtch + suffix;
         highlight = ALTHIGHLIGHT;
     } else {
@@ -196,11 +184,11 @@ match_finder::color_output_string(
         highlight = HIGHLIGHT;
     }
 
-    int start_index = find_match_index(res,concat);
-    int end_index = start_index + mtch.length() - 1;
+    int sindex = find_match_index(res,concat);
+    int eindex = sindex + mtch.length();
 
-    res.insert(start_index, highlight);
-    res.insert(highlight.size() + end_index + 1, RESET);
+    res.insert(sindex, highlight);
+    res.insert(eindex + highlight.size(), RESET);
 
     return res;
 }
@@ -238,9 +226,16 @@ match_finder::merge_results(
     int s2len = s2.length();
 
     int i = 0, j = 0;
+    bool unclosed = false; // does HIGHLIGHT have matching RESET?
     while(i < s1len && j < s2len) {
-        if (s1[i] != '\033' && s1[i] == s2[j]) {
+        bool both_equal = s1[i] == s2[j];
+        bool neither_esc = s1[i]!='\033' && s2[j]!='\033';
+        if (both_equal && neither_esc) {
             res += s1[i]; 
+            ++i;
+            ++j;
+        } else if (!both_equal && neither_esc && unclosed) {
+            res += XSTR(BLANK_CHAR);
             ++i;
             ++j;
         } else {
@@ -259,20 +254,34 @@ match_finder::merge_results(
             if (s1_term_seq == RESET) {
                 res += RESET;
                 i += strlen(RESET);
+                unclosed = false;
             } else if (s2_term_seq == RESET) {
                 res += RESET;
                 j += strlen(RESET);
+                unclosed = false;
             } else if (s1_term_seq.empty()) {
-                res += HIGHLIGHT;
-                j += strlen(HIGHLIGHT);
+                if (s2_term_seq == HIGHLIGHT) {
+                    res += HIGHLIGHT;
+                    j += strlen(HIGHLIGHT);
+                } else {
+                    res += ALTHIGHLIGHT;
+                    j += strlen(ALTHIGHLIGHT);
+                }
+                unclosed = true;
             } else {
-                res += HIGHLIGHT;
-                i += strlen(HIGHLIGHT);
+                if (s1_term_seq == HIGHLIGHT) {
+                    res += HIGHLIGHT;
+                    i += strlen(HIGHLIGHT);
+                } else {
+                    res += ALTHIGHLIGHT;
+                    i += strlen(ALTHIGHLIGHT);
+                }
+                unclosed = true;
             }
         }
     }
 
-    if (i != s1len || j != s2len)
+    if (unclosed)
         res += RESET;
 
     return res;
@@ -285,8 +294,28 @@ match_finder::get_term_ctrl_loc(
         ) {
     using cstriter = std::string::const_iterator;
     cstriter start = s.begin() + offset;
-    while (s[offset] != 'm') ++offset;
-    ++offset;
+
+//    do {
+//        while (s[offset] != 'm') 
+//            ++offset;
+//        ++offset;
+//    } while (offset < s.size() - 1
+//            && s[offset] == '\033'
+//            && s[offset + 1] == '[');
+
+    if (s[offset] != '\033') {
+        
+        std::terminate();
+    }
+
+    std::string seq;
+    do {
+        while (s[offset] != 'm') 
+            ++offset;
+        ++offset;
+        seq = std::string(start, s.begin() + offset);
+    } while (seq!= HIGHLIGHT && seq != ALTHIGHLIGHT && seq != RESET);
+
     cstriter end = s.begin() + offset;
     return {start, end};
 }

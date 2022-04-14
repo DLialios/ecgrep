@@ -13,6 +13,10 @@
 #define ALTHIGHLIGHT RED_BGRND BOLD_BLUE
 
 #define MAX_FILE_SZ 100'000'000
+#define BLANK_CHAR $
+
+#define XSTR(s) STR(s)
+#define STR(s) #s
 
 /* @brief Find all @a v in @a c.
  * @param c Container to search.
