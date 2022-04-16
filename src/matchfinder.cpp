@@ -284,6 +284,18 @@ match_finder::merge_results(
     if (unclosed)
         res += RESET;
 
+    // one of the strings may not have
+    // finished parsing yet
+    while (i < s1len) {
+        res += s1[i];
+        ++i;
+    }
+
+    while (j < s2len) {
+        res += s2[j];
+        ++j;
+    }
+
     return res;
 }
 
@@ -293,30 +305,17 @@ match_finder::get_term_ctrl_loc(
         int offset
         ) {
     using cstriter = std::string::const_iterator;
-    cstriter start = s.begin() + offset;
-
-//    do {
-//        while (s[offset] != 'm') 
-//            ++offset;
-//        ++offset;
-//    } while (offset < s.size() - 1
-//            && s[offset] == '\033'
-//            && s[offset + 1] == '[');
-
-    if (s[offset] != '\033') {
-        
-        std::terminate();
-    }
-
+    cstriter start = s.begin() + offset, end;
     std::string seq;
+
     do {
         while (s[offset] != 'm') 
             ++offset;
-        ++offset;
-        seq = std::string(start, s.begin() + offset);
-    } while (seq!= HIGHLIGHT && seq != ALTHIGHLIGHT && seq != RESET);
+        offset += 1;
+        end = s.begin() + offset;
+        seq = std::string(start, end);
+    } while (seq != HIGHLIGHT && seq != ALTHIGHLIGHT && seq != RESET);
 
-    cstriter end = s.begin() + offset;
     return {start, end};
 }
 
