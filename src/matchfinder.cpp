@@ -113,10 +113,10 @@ match_finder::get_matches(
     int max_index = newline_locs.size() - 1;
     int curr_index = 0;
 
-    auto it = sregex_iterator(str.begin(),str.end(),patrn);
-    auto end = sregex_iterator();
-    for (smatch match; it != end; ++it) {
-        match = *it;
+    smatch match;
+    auto str_begin = str.begin();
+    auto str_end = str.end();
+    while (regex_search(str_begin,str_end,match,patrn)) {
 
         string prefix = match.prefix().str();
         string curr_m = match[0];
@@ -148,6 +148,8 @@ match_finder::get_matches(
         res[curr_index + 1].push_back(line_color);
 
         curr_index += find_all(curr_m,'\n').size(); 
+
+        str_begin = match.suffix().first;
     }
 
     return res;
