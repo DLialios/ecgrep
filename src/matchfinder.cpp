@@ -1,11 +1,11 @@
 #include "matchfinder.hpp"
 
 match_finder::match_finder(
-        const std::string& filepath,
-        const std::string& pwdpath,
-        const std::regex& patrn
-        )
-    :patrn(patrn)
+    const std::string& filepath,
+    const std::string& pwdpath,
+    const std::regex& patrn
+)
+:patrn(patrn)
 {
     auto it = filepath.begin();
     it += pwdpath.size();
@@ -20,10 +20,10 @@ match_finder::operator()() {
 
     if (sz == 0) {
         std::string msg(
-                BOLD_RED 
-                "<cannot read file>" 
-                RESET
-                );
+            BOLD_RED 
+            "<cannot read file>" 
+            RESET
+        );
         res.push_back(print_match(-1,msg,true));
         return res;
     }
@@ -48,10 +48,10 @@ match_finder::operator()() {
     // bail if the file is likely binary
     if (!is_binary(data)) {
         std::string msg(
-                BOLD_RED 
-                "<file is not plaintext>" 
-                RESET
-                );
+            BOLD_RED 
+            "<file is not plaintext>" 
+            RESET
+        );
         res.push_back(print_match(-1,msg,true));
         return res;
     }
@@ -68,10 +68,10 @@ match_finder::operator()() {
 
     if (res.empty()) {
         std::string msg(
-                BOLD_RED 
-                "<no matches>" 
-                RESET
-                );
+            BOLD_RED 
+            "<no matches>" 
+            RESET
+        );
         res.push_back(print_match(-1,msg,true));
     }
 
@@ -88,23 +88,24 @@ match_finder::file_size() {
 
 bool
 match_finder::is_binary(
-        const std::string& s
-        ) {
+    const std::string& s
+) {
     if (s.length() < 16385){ 
         for (const auto& e : s)
-            if (e == 0)
-                return false;
-    } else
+        if (e == 0)
+            return false;
+    } else {
         for (int i = 0; i < 16384; ++i)
             if (s[i] == 0)
                 return false;
+    }
     return true; 
 }
 
 std::map<int, std::vector<std::string>> 
 match_finder::get_matches(
-        const std::string& str
-        ) {
+    const std::string& str
+) {
     using namespace std;
     map<int,vector<string>> res;
 
@@ -154,10 +155,10 @@ match_finder::get_matches(
 
 std::string 
 match_finder::color_output_string(
-        const std::string& s,
-        const std::string& match,
-        const std::string& suffix
-        ) {
+    const std::string& s,
+    const std::string& match,
+    const std::string& suffix
+) {
     namespace rc = std::regex_constants;
     static const auto flags = rc::ECMAScript | rc::optimize | rc::nosubs;
     static const std::regex bpat(R"([[:space:]])", flags);
@@ -195,9 +196,9 @@ match_finder::color_output_string(
 
 int 
 match_finder::find_match_index(
-        const std::string& s,
-        const std::string& suffix
-        ) {
+    const std::string& s,
+    const std::string& suffix
+) {
     using sz_t = std::string::size_type;
     for (sz_t i = 0; i < s.length(); ++i) {
         if (s[i] == suffix[0]) {
@@ -215,9 +216,9 @@ match_finder::find_match_index(
 
 std::string
 match_finder::merge_results(
-        const std::string& s1,
-        const std::string& s2
-        ) {
+    const std::string& s1,
+    const std::string& s2
+) {
     if (s1 == s2)
         return s1;
 
@@ -301,9 +302,9 @@ match_finder::merge_results(
 
 std::pair<std::string::const_iterator,std::string::const_iterator>
 match_finder::get_term_ctrl_loc(
-        const std::string& s,
-        int offset
-        ) {
+    const std::string& s,
+    int offset
+) {
     using cstriter = std::string::const_iterator;
     cstriter start = s.begin() + offset, end;
     std::string seq;
@@ -321,10 +322,10 @@ match_finder::get_term_ctrl_loc(
 
 std::pair<bool,std::string>
 match_finder::print_match(
-        const int lineno,
-        std::string& line,
-        const bool is_err
-        ) { 
+    const int lineno,
+    std::string& line,
+    const bool is_err
+) { 
     std::ostringstream os;
     os
         <<PURPLE<<filepath<<RESET
