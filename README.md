@@ -16,3 +16,5 @@ Workload is placed on as many threads as the platform has available.
 Has two switches, c (case-sensitive) and v (verbose output).
 
 `ecgrep -c 'Hello [wW]orld!\n'`
+
+Note that the regex implementation in libstdc++ is currently [bugged](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61582). Sufficiently large target sequences will produce SIGSEGV depending on the input pattern.
