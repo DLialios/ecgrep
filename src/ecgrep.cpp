@@ -24,11 +24,11 @@ void worker(deque_str& files, const std::regex& patrn) {
             std::lock_guard<std::mutex> lock(m);
 
             for (const auto& e : ret)
-                if (e.first) {
-                    if (verbose)
-                        std::cerr << e.second;
-                } else
-                    std::cout << e.second;
+            if (e.first) {
+                if (verbose)
+                    std::cerr << e.second;
+            } else
+            std::cout << e.second;
         }
 
         files.pop_front();
@@ -51,7 +51,7 @@ int main(int argc, const char** argv)
     int i = 1;
     for (; i < argc; ++i) { // process each arg
         if (argv[i][0] != '-'
-                || (argv[i][0] == '-' && i == argc - 1))
+            || (argv[i][0] == '-' && i == argc - 1))
             break;
 
         for (int j = 1; j < strlen(argv[i]); ++j)
@@ -75,13 +75,13 @@ int main(int argc, const char** argv)
     deque_str jobs[nthread];
 
     fs::recursive_directory_iterator iter(pwdpath,
-            fs::directory_options::skip_permission_denied);
+                                          fs::directory_options::skip_permission_denied);
     int curr = 0;
     for (const auto& e : iter) 
-        if (e.is_regular_file()) {
-            jobs[curr].emplace_back(e.path().c_str());
-            curr = curr == nthread - 1 ? 0 : ++curr;
-        }
+    if (e.is_regular_file()) {
+        jobs[curr].emplace_back(e.path().c_str());
+        curr = curr == nthread - 1 ? 0 : ++curr;
+    }
 
     std::vector<std::thread> threads;
 
@@ -89,7 +89,7 @@ int main(int argc, const char** argv)
         threads.emplace_back(worker, std::ref(jobs[i]), std::cref(patrn));
 
     for (auto& e : threads)
-        e.join();
+    e.join();
 
     return 0;
 }

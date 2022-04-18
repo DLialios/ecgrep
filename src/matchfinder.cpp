@@ -1,11 +1,11 @@
 #include "matchfinder.hpp"
 
 match_finder::match_finder(
-        const std::string& filepath,
-        const std::string& pwdpath,
-        const std::regex& patrn
-        )
-    :patrn(patrn)
+    const std::string& filepath,
+    const std::string& pwdpath,
+    const std::regex& patrn
+)
+:patrn(patrn)
 {
     auto it = filepath.begin();
     it += pwdpath.size();
@@ -20,10 +20,10 @@ match_finder::operator()() {
 
     if (sz == 0) {
         std::string msg(
-                BOLD_RED 
-                "<cannot read file>" 
-                RESET
-                );
+            BOLD_RED 
+            "<cannot read file>" 
+            RESET
+        );
         res.push_back(print_match(-1,msg,true));
         return res;
     }
@@ -48,10 +48,10 @@ match_finder::operator()() {
     // bail if the file is likely binary
     if (!is_binary(data)) {
         std::string msg(
-                BOLD_RED 
-                "<file is not plaintext>" 
-                RESET
-                );
+            BOLD_RED 
+            "<file is not plaintext>" 
+            RESET
+        );
         res.push_back(print_match(-1,msg,true));
         return res;
     }
@@ -68,10 +68,10 @@ match_finder::operator()() {
 
     if (res.empty()) {
         std::string msg(
-                BOLD_RED 
-                "<no matches>" 
-                RESET
-                );
+            BOLD_RED 
+            "<no matches>" 
+            RESET
+        );
         res.push_back(print_match(-1,msg,true));
     }
 
@@ -88,118 +88,141 @@ match_finder::file_size() {
 
 bool
 match_finder::is_binary(
-        const std::string& s
-        ) {
+    const std::string& s
+) {
     if (s.length() < 16385){ 
         for (const auto& e : s)
-            if (e == 0)
-                return false;
-    } else
+        if (e == 0)
+            return false;
+    } else {
         for (int i = 0; i < 16384; ++i)
             if (s[i] == 0)
                 return false;
+    }
     return true; 
 }
 
 std::map<int, std::vector<std::string>> 
 match_finder::get_matches(
-        const std::string& str
-        ) {
+    const std::string& str
+) {
     using namespace std;
     map<int,vector<string>> res;
-    auto str_begin = str.cbegin();
-    auto str_end = str.cend();
 
     auto newline_locs = find_all(str,'\n');
-    int total_lines = newline_locs.size() + 1;
-    int curr_lineno = 1;
-    int prev_lineno = 1;
+    int max_index = newline_locs.size() - 1;
+    int curr_index = 0;
 
     smatch match;
-    vector<string> curr_line_matches;
-    bool hasrun = false;
+    auto str_begin = str.begin();
+    auto str_end = str.end();
     while (regex_search(str_begin,str_end,match,patrn)) {
-        hasrun = true;
+
         string prefix = match.prefix().str();
         string curr_m = match[0];
         string suffix = match.suffix().str();
 
-        curr_lineno += find_all(prefix + curr_m,'\n').size();
+        curr_index += find_all(prefix,'\n').size(); 
 
         decltype(newline_locs)::value_type start,end;
         if (newline_locs.empty()) { // edge case: file has no \n
             start = str.begin();
             end = str.end();
-        } else if (curr_lineno < 2) { // start
+        } else if (curr_index == 0) { // start
             start = str.begin();
-            end = newline_locs[0];
-        } else if (curr_lineno == total_lines) { // end
-            start = newline_locs[curr_lineno - 2] + 1;
+            end = newline_locs[0] + 1;
+        } else if (curr_index == max_index) { // end
+            start = newline_locs[curr_index - 1] + 1;
             end = str.end();
         } else { // middle
-            start = newline_locs[curr_lineno - 2] + 1;
-            end = newline_locs[curr_lineno - 1];
+            start = newline_locs[curr_index - 1] + 1;
+            end = newline_locs[curr_index] + 1;
         }
 
-        if (curr_lineno != prev_lineno
-                && !curr_line_matches.empty()) {
-            res.insert({prev_lineno, curr_line_matches});
-            curr_line_matches.clear();
-        }
-        curr_line_matches.emplace_back(
-                color_output_string(string(start,end),curr_m,suffix)
-                );
+        string line(start, end);
+        string line_color = color_output_string(line,curr_m,suffix);
+
+        if (line_color.back() == '\n')
+            line_color.pop_back();
+
+        res[curr_index + 1].push_back(line_color);
+
+        curr_index += find_all(curr_m,'\n').size(); 
 
         str_begin = match.suffix().first;
-        prev_lineno = curr_lineno;
     }
-
-    if (hasrun)
-        res.insert({curr_lineno, curr_line_matches});
 
     return res;
 }
 
 std::string 
 match_finder::color_output_string(
-        const std::string& s,
-        const std::string& match,
-        const std::string& suffix
-        ) {
+    const std::string& s,
+    const std::string& match,
+    const std::string& suffix
+) {
+    namespace rc = std::regex_constants;
+    static const auto flags = rc::ECMAScript | rc::optimize | rc::nosubs;
+    static const std::regex bpat(R"([[:space:]])", flags);
+
     std::string res(s);
-    std::string color(HIGHLIGHT);
-    std::string mtch (match);
+    // location of match in res
+    int sindex = find_match_index(res,match+suffix);
+    int eindex = sindex + match.length();
 
-    // we have to remove newlines from match
-    std::string::size_type inewline = mtch.find_last_of('\n');
-    if (inewline != std::string::npos) {
-        if (inewline == mtch.length() - 1)
-            mtch.clear();
-        else 
-            mtch = mtch.substr(inewline + 1);
+    // when match does not contain any whitespace chars
+    if (!std::regex_search(match, bpat)) {
+        res.insert(sindex, HIGHLIGHT);
+        res.insert(eindex + strlen(HIGHLIGHT), RESET);
+        return res;
     }
 
-    // insert terminal codes
-    if (s == mtch) {
-        res.insert(0, color);
-        res.insert(res.length(), RESET);
-    }
-    else {    
-        int start_index = find_match_index(s,mtch+suffix);
-        int end_index = start_index + mtch.length() - 1;
+    // when match does contain whitespace chars
+    bool unclosed = false;
+    bool altunclosed = false;
+    std::string cmatch(match);
+    for (int i = 0; cmatch.c_str()[i] != '\0'; ++i) {
+        char curr = cmatch[i];
+        if (std::regex_search(&curr, bpat)) {
+            if (unclosed) {
+                cmatch.insert(i, RESET);
+                i += strlen(RESET);
+                unclosed = false;
+            }
 
-        res.insert(start_index, color);
-        res.insert(color.length() + end_index + 1, RESET);
-    }
+            if (!altunclosed) {
+                cmatch.insert(i, ALTHIGHLIGHT);
+                i += strlen(ALTHIGHLIGHT);
+                altunclosed = true;
+            }
 
+            cmatch[i] = XSTR(BLANK_CHAR)[0];
+        } else { 
+            if (altunclosed) {
+                cmatch.insert(i, RESET);
+                i += strlen(RESET);
+                altunclosed = false;
+            }
+
+            if (!unclosed) {
+                cmatch.insert(i, HIGHLIGHT);
+                i += strlen(HIGHLIGHT);
+                unclosed = true;
+            }
+        }
+    }
+    if (unclosed || altunclosed)
+        cmatch += RESET;
+
+    res.replace(sindex, match.size(), cmatch);
     return res;
 }
 
 int 
 match_finder::find_match_index(
-        const std::string& s,
-        const std::string& suffix
-        ) {
+    const std::string& s,
+    const std::string& suffix
+) {
     using sz_t = std::string::size_type;
     for (sz_t i = 0; i < s.length(); ++i) {
         if (s[i] == suffix[0]) {
@@ -217,9 +240,9 @@ match_finder::find_match_index(
 
 std::string
 match_finder::merge_results(
-        const std::string& s1,
-        const std::string& s2
-        ) {
+    const std::string& s1,
+    const std::string& s2
+) {
     if (s1 == s2)
         return s1;
 
@@ -228,9 +251,16 @@ match_finder::merge_results(
     int s2len = s2.length();
 
     int i = 0, j = 0;
+    bool unclosed = false; // does HIGHLIGHT have matching RESET?
     while(i < s1len && j < s2len) {
-        if (s1[i] != '\033' && s1[i] == s2[j]) {
+        bool both_equal = s1[i] == s2[j];
+        bool neither_esc = s1[i]!='\033' && s2[j]!='\033';
+        if (both_equal && neither_esc) {
             res += s1[i]; 
+            ++i;
+            ++j;
+        } else if (!both_equal && neither_esc && unclosed) {
+            res += XSTR(BLANK_CHAR);
             ++i;
             ++j;
         } else {
@@ -249,52 +279,77 @@ match_finder::merge_results(
             if (s1_term_seq == RESET) {
                 res += RESET;
                 i += strlen(RESET);
+                unclosed = false;
             } else if (s2_term_seq == RESET) {
                 res += RESET;
                 j += strlen(RESET);
+                unclosed = false;
             } else if (s1_term_seq.empty()) {
-                res += HIGHLIGHT;
-                j += strlen(HIGHLIGHT);
+                if (s2_term_seq == HIGHLIGHT) {
+                    res += HIGHLIGHT;
+                    j += strlen(HIGHLIGHT);
+                } else {
+                    res += ALTHIGHLIGHT;
+                    j += strlen(ALTHIGHLIGHT);
+                }
+                unclosed = true;
             } else {
-                res += HIGHLIGHT;
-                i += strlen(HIGHLIGHT);
+                if (s1_term_seq == HIGHLIGHT) {
+                    res += HIGHLIGHT;
+                    i += strlen(HIGHLIGHT);
+                } else {
+                    res += ALTHIGHLIGHT;
+                    i += strlen(ALTHIGHLIGHT);
+                }
+                unclosed = true;
             }
         }
     }
 
-    if (i != s1len || j != s2len)
+    if (unclosed)
         res += RESET;
+
+    // one of the strings may not have
+    // finished parsing yet
+    while (i < s1len) {
+        res += s1[i];
+        ++i;
+    }
+
+    while (j < s2len) {
+        res += s2[j];
+        ++j;
+    }
 
     return res;
 }
 
 std::pair<std::string::const_iterator,std::string::const_iterator>
 match_finder::get_term_ctrl_loc(
-        const std::string& s,
-        int offset
-        ) {
+    const std::string& s,
+    int offset
+) {
     using cstriter = std::string::const_iterator;
-    cstriter start = s.begin() + offset;
-    while (s[offset] != 'm') ++offset;
-    ++offset;
-    cstriter end = s.begin() + offset;
+    cstriter start = s.begin() + offset, end;
+    std::string seq;
+
+    do {
+        while (s[offset] != 'm') 
+            ++offset;
+        offset += 1;
+        end = s.begin() + offset;
+        seq = std::string(start, end);
+    } while (seq != HIGHLIGHT && seq != ALTHIGHLIGHT && seq != RESET);
+
     return {start, end};
 }
 
 std::pair<bool,std::string>
 match_finder::print_match(
-        const int lineno,
-        std::string& line,
-        const bool is_err
-        ) { 
-    using sz_t = std::string::size_type; 
-    sz_t min_len = std::strlen(HIGHLIGHT) + std::strlen(RESET);
-
-    if (line.length() >= min_len
-            && line.substr(0, min_len) == HIGHLIGHT RESET) {
-        line.assign(BOLD_BLUE "<blank_match>" RESET);
-    }
-
+    const int lineno,
+    std::string& line,
+    const bool is_err
+) { 
     std::ostringstream os;
     os
         <<PURPLE<<filepath<<RESET
