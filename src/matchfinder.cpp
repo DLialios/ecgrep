@@ -163,34 +163,56 @@ match_finder::color_output_string(
     static const auto flags = rc::ECMAScript | rc::optimize | rc::nosubs;
     static const std::regex bpat(R"([[:space:]])", flags);
 
-    std::string highlight;
-    std::string res, mtch, concat;
-    if (std::regex_search(match, bpat)) {
-        int loc = find_match_index(s,match+suffix);
-        std::ostringstream os(s);
-        os.seekp(loc);
-        std::ostream_iterator<char> osi(os);
-        auto siter = s.begin() + loc;
-        auto eiter = siter + match.length();
-        std::regex_replace(osi, siter, eiter, bpat, XSTR(BLANK_CHAR));
+    std::string res(s);
+    // location of match in res
+    int sindex = find_match_index(res,match+suffix);
+    int eindex = sindex + match.length();
 
-        res = os.str();
-        mtch = std::regex_replace(match, bpat, XSTR(BLANK_CHAR));
-        concat = mtch + suffix;
-        highlight = ALTHIGHLIGHT;
-    } else {
-        res = s;
-        mtch = match;
-        concat = mtch + suffix;
-        highlight = HIGHLIGHT;
+    // when match does not contain any whitespace chars
+    if (!std::regex_search(match, bpat)) {
+        res.insert(sindex, HIGHLIGHT);
+        res.insert(eindex + strlen(HIGHLIGHT), RESET);
+        return res;
     }
 
-    int sindex = find_match_index(res,concat);
-    int eindex = sindex + mtch.length();
+    // when match does contain whitespace chars
+    bool unclosed = false;
+    bool altunclosed = false;
+    std::string cmatch(match);
+    for (int i = 0; cmatch.c_str()[i] != '\0'; ++i) {
+        char curr = cmatch[i];
+        if (std::regex_search(&curr, bpat)) {
+            if (unclosed) {
+                cmatch.insert(i, RESET);
+                i += strlen(RESET);
+                unclosed = false;
+            }
 
-    res.insert(sindex, highlight);
-    res.insert(eindex + highlight.size(), RESET);
+            if (!altunclosed) {
+                cmatch.insert(i, ALTHIGHLIGHT);
+                i += strlen(ALTHIGHLIGHT);
+                altunclosed = true;
+            }
 
+            cmatch[i] = XSTR(BLANK_CHAR)[0];
+        } else { 
+            if (altunclosed) {
+                cmatch.insert(i, RESET);
+                i += strlen(RESET);
+                altunclosed = false;
+            }
+
+            if (!unclosed) {
+                cmatch.insert(i, HIGHLIGHT);
+                i += strlen(HIGHLIGHT);
+                unclosed = true;
+            }
+        }
+    }
+    if (unclosed || altunclosed)
+        cmatch += RESET;
+
+    res.replace(sindex, match.size(), cmatch);
     return res;
 }
 
