@@ -15,6 +15,7 @@
 #define ALTHIGHLIGHT RED_BGRND BOLD_BLUE
 
 #define MAX_FILE_SZ 100'000'000
+#define MAX_LINE_SZ 400
 #define BLANK_CHAR $
 
 #define XSTR(s) STR(s)

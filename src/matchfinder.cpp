@@ -350,13 +350,16 @@ match_finder::print_match(
     std::string& line,
     const bool is_err
 ) { 
+    constexpr const char* line_msg = 
+        BOLD_BLUE "<very long line>" RESET;
+
     std::ostringstream os;
-    os
-        <<PURPLE<<filepath<<RESET
+    os <<PURPLE<<filepath<<RESET
         <<CYAN<<":"<<RESET
         <<GREEN<<lineno<<RESET
         <<CYAN<<":"<<RESET
-        <<line<<'\n';
+        <<(line.size() > MAX_LINE_SZ ? line_msg : line)
+        <<'\n';
 
     return {is_err,os.str()};
 }
