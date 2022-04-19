@@ -180,10 +180,10 @@ match_finder::color_output_string(
     // when match does contain whitespace chars
     bool unclosed = false;
     bool altunclosed = false;
-    std::string cmatch(match);
+    std::string cmatch(match), curr;
     for (int i = 0; cmatch.c_str()[i] != '\0'; ++i) {
-        char curr = cmatch[i];
-        if (std::regex_search(&curr, bpat)) {
+        curr = cmatch[i];
+        if (std::regex_search(curr, bpat)) {
             if (unclosed) {
                 cmatch.insert(i, RESET);
                 i += strlen(RESET);

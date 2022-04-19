@@ -1,5 +1,7 @@
-#include <fstream>
+#include <map>
 #include <regex>
+#include <fstream>
+#include <sstream>
 
 #define GREEN "\e[0;32m"
 #define PURPLE "\e[0;35m"
