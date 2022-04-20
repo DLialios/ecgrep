@@ -59,8 +59,15 @@ match_finder::operator()() {
     auto m = get_matches(data);
 
     for (const auto& e : m) {
-        std::string s (e.second[0]);
-        for (const auto& e2 : e.second) {
+        if (e.second.first) {
+            res.push_back(
+                    print_match(e.first,
+                                BOLD_BLUE "<very long line>" RESET,
+                                false));
+            continue;
+        }
+        std::string s (e.second.second[0]);
+        for (const auto& e2 : e.second.second) {
             s = merge_results(s, e2);
         }
         res.push_back(print_match(e.first,s,false));
@@ -102,12 +109,12 @@ match_finder::is_binary(
     return true; 
 }
 
-std::map<int, std::vector<std::string>> 
+std::map<int, std::pair<bool,std::vector<std::string>>> 
 match_finder::get_matches(
     const std::string& str
 ) {
     using namespace std;
-    map<int,vector<string>> res;
+    map<int, pair<bool,vector<string>>> res;
 
     auto newline_locs = find_all(str,'\n');
     int max_index = newline_locs.size() - 1;
@@ -150,10 +157,13 @@ match_finder::get_matches(
         if (line_color.back() == '\n')
             line_color.pop_back();
 
-        res[curr_index + 1].push_back(line_color);
+        bool& too_long = res[curr_index + 1].first;
+        if (!too_long && line.size() > MAX_LINE_SZ)
+            too_long = true;
+        res[curr_index + 1].second.push_back(line_color);
 
+        // setup for next iteration
         curr_index += find_all(curr_m,'\n').size(); 
-
         str_begin = match.suffix().first;
     }
 
@@ -352,18 +362,15 @@ match_finder::get_term_ctrl_loc(
 std::pair<bool,std::string>
 match_finder::print_match(
     const int lineno,
-    std::string& line,
+    const std::string& line,
     const bool is_err
 ) { 
-    constexpr const char* line_msg = 
-        BOLD_BLUE "<very long line>" RESET;
-
     std::ostringstream os;
     os <<PURPLE<<filepath<<RESET
         <<CYAN<<":"<<RESET
         <<GREEN<<lineno<<RESET
         <<CYAN<<":"<<RESET
-        <<(line.size() > MAX_LINE_SZ ? line_msg : line)
+        <<line
         <<'\n';
 
     return {is_err,os.str()};
