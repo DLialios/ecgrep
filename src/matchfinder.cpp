@@ -125,7 +125,12 @@ match_finder::get_matches(
         curr_index += find_all(prefix,'\n').size(); 
 
         decltype(newline_locs)::value_type start,end;
-        if (newline_locs.empty()) { // edge case: file has no \n
+        if (curr_index > max_index) {
+            // edge case: file doesn't end with \n
+            start = newline_locs[max_index] + 1;
+            end = str.end();
+        } else if (newline_locs.empty()) {
+            // edge case: file has no \n
             start = str.begin();
             end = str.end();
         } else if (curr_index == 0) { // start
